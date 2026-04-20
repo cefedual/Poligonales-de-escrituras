@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Generador de Poligonal para AutoCAD</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f3f4f6; margin: 0; padding: 20px; color: #1f2937; }
+  .container { max-width: 1200px; margin: 0 auto; background: white; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); padding: 28px; }
+  h1 { margin-top: 0; color: #1e3a8a; font-size: 1.6rem; }
+  h2 { font-size: 1.1rem; color: #1e3a8a; margin-bottom: 10px; margin-top: 0; }
+  .info { background: #eff6ff; border-left: 4px solid #3b82f6; padding: 12px 16px; border-radius: 4px; font-size: 0.9rem; margin-bottom: 20px; }
+  .section { margin-bottom: 20px; padding: 16px; background: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb; }
+  .row-flex { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  label { font-weight: 600; font-size: 0.9rem; }
+  input[type="text"], input[type="number"], select { padding: 7px 10px; border: 1px solid #d1d5db; border-radius: 6px; font-family: monospace; font-size: 0.9rem; }
+  #escrituraNombre { width: 280px; }
+  #startX, #startY { width: 110px; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+  th { background: #1e3a8a; color: white; padding: 10px 6px; font-size: 0.85rem; text-align: center; }
+  td { padding: 4px; border-bottom: 1px solid #e5e7eb; }
+  td input, td select { width: 100%; padding: 6px 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 0.9rem; text-align: center; font-family: monospace; }
+  td input:focus, td select:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.2); }
+  .row-num { text-align: center; font-weight: 600; color: #6b7280; background: #f9fafb; }
+  .btn { padding: 9px 18px; border: none; border-radius: 6px; font-size: 0.9rem; font-weight: 600; cursor: pointer; margin-right: 6px; margin-bottom: 4px; transition: all 0.15s; }
+  .btn-primary { background: #1e3a8a; color: white; }
+  .btn-primary:hover { background: #1e40af; }
+  .btn-success { background: #059669; color: white; }
+  .btn-success:hover { background: #047857; }
+  .btn-secondary { background: #6b7280; color: white; }
+  .btn-secondary:hover { background: #4b5563; }
+  .btn-warning { background: #d97706; color: white; }
+  .btn-warning:hover { background: #b45309; }
+  .btn-danger { background: #dc2626; color: white; padding: 4px 10px; font-size: 0.8rem; }
+  .btn-danger:hover { background: #b91c1c; }
+  textarea { width: 100%; min-height: 160px; padding: 12px; border: 1px solid #d1d5db; border-radius: 6px; font-family: "Courier New", monospace; font-size: 0.9rem; background: #1f2937; color: #10b981; resize: vertical; }
+  .copy-msg { color: #059669; font-weight: 600; margin-left: 10px; opacity: 0; transition: opacity 0.3s; }
+  .copy-msg.show { opacity: 1; }
+  .resultados { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-top: 12px; }
+  .resultado-card { background: white; padding: 14px; border-radius: 8px; border-left: 4px solid #059669; }
+  .resultado-card .label { font-size: 0.75rem; color: #6b7280; text-transform: uppercase; font-weight: 600; }
+  .resultado-card .value { font-size: 1.3rem; font-weight: 700; color: #1e3a8a; font-family: monospace; margin-top: 4px; }
+  #listaEscrituras { list-style: none; padding: 0; margin: 0; max-height: 240px; overflow-y: auto; }
+  #listaEscrituras li { background: white; padding: 10px 14px; margin-bottom: 6px; border-radius: 6px; border: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center; font-size: 0.9rem; }
+  #listaEscrituras .nombre { font-weight: 600; color: #1e3a8a; }
+  #listaEscrituras .meta { font-size: 0.78rem; color: #6b7280; margin-top: 2px; }
+  .empty { text-align: center; color: #9ca3af; padding: 20px; font-style: italic; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>📐 Generador de Poligonal para AutoCAD</h1>
+  <div class="info">
+    <strong>Instrucciones:</strong> Ingresa rumbos y distancias. El sistema genera el comando LINE en formato surveyor, calcula el área de la poligonal y permite exportar coordenadas X,Y,Z.
+  </div>
+
+  <div class="section">
+    <h2>📄 Datos de la escritura</h2>
+    <div class="row-flex">
+      <label>Nombre / referencia:</label>
+      <input type="text" id="escrituraNombre" placeholder="Ej: Escritura 123 - Lote 5">
+      <label>Punto inicio X:</label>
+      <input type="text" id="startX" value="0">
+      <label>Y:</label>
+      <input type="text" id="startY" value="0">
+    </div>
+  </div>
+
+  <table id="tablaRumbos">
+    <thead>
+      <tr>
+        <th style="width:40px">#</th>
+        <th style="width:70px">N/S</th>
+        <th>Grados</th>
+        <th>Minutos</th>
+        <th>Segundos</th>
+        <th style="width:70px">E/W</th>
+        <th>Distancia (m)</th>
+        <th style="width:60px"></th>
+      </tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+  </table>
+
+  <div>
+    <button class="btn btn-primary" onclick="agregarFila()">+ Agregar línea</button>
+    <button class="btn btn-success" onclick="generar()">⚙ Generar y calcular</button>
+    <button class="btn btn-secondary" onclick="limpiarTabla()">Limpiar tabla</button>
+  </div>
+
+  <div class="resultados" id="resultados" style="display:none">
+    <div class="resultado-card">
+      <div class="label">Área</div>
+      <div class="value" id="areaM2">— m²</div>
+    </div>
+    <div class="resultado-card">
+      <div class="label">Área (varas²)</div>
+      <div class="value" id="areaVaras">—</div>
+    </div>
+    <div class="resultado-card">
+      <div class="label">Perímetro</div>
+      <div class="value" id="perimetro">— m</div>
+    </div>
+    <div class="resultado-card">
+      <div class="label">Error de cierre</div>
+      <div class="value" id="errorCierre">— m</div>
+    </div>
+  </div>
+
+  <div class="section" style="margin-top:24px">
+    <h2>Comando para AutoCAD:</h2>
+    <textarea id="output" readonly placeholder="Aquí aparecerá el comando para pegar en AutoCAD..."></textarea>
+    <div style="margin-top:10px">
+      <button class="btn btn-primary" onclick="copiar()">📋 Copiar comando</button>
+      <button class="btn btn-warning" onclick="exportarCSV()">⬇ CSV (X,Y,Z)</button>
+      <button class="btn btn-warning" onclick="exportarTXT()">⬇ TXT (X,Y,Z)</button>
+      <span id="copyMsg" class="copy-msg">✓ Copiado</span>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>💾 Escrituras guardadas</h2>
+    <button class="btn btn-success" onclick="guardarEscritura()">Guardar escritura actual</button>
+    <button class="btn btn-secondary" onclick="cargarLista()">↻ Refrescar</button>
+    <ul id="listaEscrituras" style="margin-top:14px"></ul>
+  </div>
+</div>
+
+<script>
+let contador = 0;
+let ultimosVertices = [];
+
+function agregarFila(data = {}) {
+  contador++;
+  const tbody = document.getElementById('tbody');
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td class="row-num">${contador}</td>
+    <td><select>
+      <option value="N" ${data.ns==='N'?'selected':''}>N</option>
+      <option value="S" ${data.ns==='S'?'selected':''}>S</option>
+    </select></td>
+    <td><input type="number" min="0" max="89" placeholder="0" value="${data.grados??''}"></td>
+    <td><input type="number" min="0" max="59" placeholder="0" value="${data.minutos??''}"></td>
+    <td><input type="number" min="0" max="59" placeholder="0" value="${data.segundos??''}"></td>
+    <td><select>
+      <option value="E" ${data.ew==='E'?'selected':''}>E</option>
+      <option value="W" ${data.ew==='W'?'selected':''}>W</option>
+    </select></td>
+    <td><input type="number" step="0.001" placeholder="0.000" value="${data.dist??''}"></td>
+    <td><button class="btn btn-danger" onclick="eliminarFila(this)">✕</button></td>
+  `;
+  tbody.appendChild(tr);
+  renumerar();
+}
+
+function eliminarFila(btn) { btn.closest('tr').remove(); renumerar(); }
+
+function renumerar() {
+  const filas = document.querySelectorAll('#tbody tr');
+  filas.forEach((fila, i) => { fila.querySelector('.row-num').textContent = i + 1; });
+  contador = filas.length;
+}
+
+function leerFilas() {
+  const filas = document.querySelectorAll('#tbody tr');
+  const datos = []; let errores = [];
+  filas.forEach((fila, i) => {
+    const inputs = fila.querySelectorAll('select, input');
+    const ns = inputs[0].value;
+    const grados = inputs[1].value;
+    const minutos = inputs[2].value || '0';
+    const segundos = inputs[3].value || '0';
+    const ew = inputs[4].value;
+    const dist = inputs[5].value;
+    if (grados === '' || dist === '') { errores.push(`Fila ${i + 1}: faltan datos`); return; }
+    datos.push({ ns, grados, minutos, segundos, ew, dist });
+  });
+  return { datos, errores };
+}
+
+function rumboAAzimut(ns, gg, mm, ss, ew) {
+  const decimal = parseFloat(gg) + parseFloat(mm)/60 + parseFloat(ss)/3600;
+  let azimut;
+  if (ns === 'N' && ew === 'E') azimut = decimal;
+  else if (ns === 'S' && ew === 'E') azimut = 180 - decimal;
+  else if (ns === 'S' && ew === 'W') azimut = 180 + decimal;
+  else azimut = 360 - decimal;
+  return azimut * Math.PI / 180;
+}
+
+function calcularVertices(datos, x0, y0) {
+  const vertices = [{ x: x0, y: y0 }];
+  let x = x0, y = y0, perimetro = 0;
+  datos.forEach(d => {
+    const az = rumboAAzimut(d.ns, d.grados, d.minutos, d.segundos, d.ew);
+    const dist = parseFloat(d.dist);
+    x += dist * Math.sin(az);
+    y += dist * Math.cos(az);
+    vertices.push({ x, y });
+    perimetro += dist;
+  });
+  return { vertices, perimetro };
+}
+
+function calcularArea(vertices) {
+  const n = vertices.length;
+  if (n < 3) return 0;
+  let suma = 0;
+  for (let i = 0; i < n - 1; i++) {
+    suma += (vertices[i].x * vertices[i+1].y) - (vertices[i+1].x * vertices[i].y);
+  }
+  suma += (vertices[n-1].x * vertices[0].y) - (vertices[0].x * vertices[n-1].y);
+  return Math.abs(suma) / 2;
+}
+
+function generar() {
+  const { datos, errores } = leerFilas();
+  if (datos.length === 0) { alert('Agrega al menos una línea'); return; }
+  if (errores.length > 0) { alert('Errores:\n' + errores.join('\n')); return; }
+
+  const x0 = parseFloat(document.getElementById('startX').value) || 0;
+  const y0 = parseFloat(document.getElementById('startY').value) || 0;
+
+  let comando = `_LINE\n${x0},${y0}\n`;
+  datos.forEach(d => {
+    comando += `@${d.dist}<${d.ns}${d.grados}d${d.minutos}'${d.segundos}"${d.ew}\n`;
+  });
+  comando += '\n';
+  document.getElementById('output').value = comando;
+
+  const { vertices, perimetro } = calcularVertices(datos, x0, y0);
+  ultimosVertices = vertices;
+  const area = calcularArea(vertices);
+  const areaVaras = area * 1.4308;
+  const dxC = vertices[vertices.length-1].x - vertices[0].x;
+  const dyC = vertices[vertices.length-1].y - vertices[0].y;
+  const errorCierre = Math.sqrt(dxC*dxC + dyC*dyC);
+
+  document.getElementById('areaM2').textContent = area.toFixed(3) + ' m²';
+  document.getElementById('areaVaras').textContent = areaVaras.toFixed(3);
+  document.getElementById('perimetro').textContent = perimetro.toFixed(3) + ' m';
+  document.getElementById('errorCierre').textContent = errorCierre.toFixed(4) + ' m';
+  document.getElementById('resultados').style.display = 'grid';
+}
+
+function copiar() {
+  const output = document.getElementById('output');
+  if (!output.value) { alert('Primero genera el comando'); return; }
+  output.select();
+  document.execCommand('copy');
+  const msg = document.getElementById('copyMsg');
+  msg.classList.add('show');
+  setTimeout(() => msg.classList.remove('show'), 2000);
+}
+
+function descargarArchivo(contenido, nombre, tipo) {
+  const blob = new Blob([contenido], { type: tipo });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = nombre; a.click();
+  URL.revokeObjectURL(url);
+}
+
+function nombreArchivo(ext) {
+  const base = (document.getElementById('escrituraNombre').value || 'poligonal').replace(/[^a-z0-9_\-]/gi, '_');
+  return `${base}.${ext}`;
+}
+
+function exportarCSV() {
+  if (ultimosVertices.length === 0) { alert('Primero genera el comando'); return; }
+  let csv = 'Punto,X,Y,Z\n';
+  ultimosVertices.forEach((v, i) => {
+    csv += `${i+1},${v.x.toFixed(4)},${v.y.toFixed(4)},0.0000\n`;
+  });
+  descargarArchivo(csv, nombreArchivo('csv'), 'text/csv');
+}
+
+function exportarTXT() {
+  if (ultimosVertices.length === 0) { alert('Primero genera el comando'); return; }
+  let txt = '';
+  ultimosVertices.forEach(v => {
+    txt += `${v.x.toFixed(4)},${v.y.toFixed(4)},0.0000\n`;
+  });
+  descargarArchivo(txt, nombreArchivo('txt'), 'text/plain');
+}
+
+async function guardarEscritura() {
+  const nombre = document.getElementById('escrituraNombre').value.trim();
+  if (!nombre) { alert('Ingresa un nombre para la escritura'); return; }
+  const { datos } = leerFilas();
+  if (datos.length === 0) { alert('No hay datos para guardar'); return; }
+  const x0 = document.getElementById('startX').value;
+  const y0 = document.getElementById('startY').value;
+  const id = 'esc_' + Date.now();
+  const registro = { nombre, x0, y0, datos, fecha: new Date().toISOString() };
+  try {
+    await window.storage.set(`escrituras:${id}`, JSON.stringify(registro));
+    alert('✓ Escritura guardada');
+    cargarLista();
+  } catch (e) { alert('Error al guardar: ' + e.message); }
+}
+
+async function cargarLista() {
+  const ul = document.getElementById('listaEscrituras');
+  ul.innerHTML = '<li class="empty">Cargando...</li>';
+  try {
+    const result = await window.storage.list('escrituras:');
+    const keys = (result && result.keys) || [];
+    if (keys.length === 0) { ul.innerHTML = '<li class="empty">No hay escrituras guardadas</li>'; return; }
+    const items = [];
+    for (const k of keys) {
+      try {
+        const r = await window.storage.get(k);
+        if (r && r.value) items.push({ key: k, ...JSON.parse(r.value) });
+      } catch(e) {}
+    }
+    items.sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''));
+    ul.innerHTML = '';
+    items.forEach(it => {
+      const li = document.createElement('li');
+      const fecha = it.fecha ? new Date(it.fecha).toLocaleString() : '';
+      li.innerHTML = `
+        <div>
+          <div class="nombre">${it.nombre}</div>
+          <div class="meta">${(it.datos||[]).length} líneas · ${fecha}</div>
+        </div>
+        <div>
+          <button class="btn btn-primary" style="padding:5px 10px;font-size:0.8rem">Cargar</button>
+          <button class="btn btn-danger">Borrar</button>
+        </div>
+      `;
+      li.querySelector('.btn-primary').onclick = () => cargarEscritura(it);
+      li.querySelector('.btn-danger').onclick = () => borrarEscritura(it.key);
+      ul.appendChild(li);
+    });
+  } catch (e) {
+    ul.innerHTML = '<li class="empty">No hay escrituras guardadas</li>';
+  }
+}
+
+function cargarEscritura(it) {
+  document.getElementById('escrituraNombre').value = it.nombre || '';
+  document.getElementById('startX').value = it.x0 || '0';
+  document.getElementById('startY').value = it.y0 || '0';
+  document.getElementById('tbody').innerHTML = '';
+  contador = 0;
+  (it.datos || []).forEach(d => agregarFila(d));
+  document.getElementById('resultados').style.display = 'none';
+  document.getElementById('output').value = '';
+}
+
+async function borrarEscritura(key) {
+  if (!confirm('¿Borrar esta escritura?')) return;
+  try { await window.storage.delete(key); cargarLista(); }
+  catch (e) { alert('Error al borrar: ' + e.message); }
+}
+
+function limpiarTabla() {
+  if (!confirm('¿Borrar todas las líneas?')) return;
+  document.getElementById('tbody').innerHTML = '';
+  document.getElementById('output').value = '';
+  document.getElementById('resultados').style.display = 'none';
+  contador = 0;
+  agregarFila();
+}
+
+agregarFila();
+agregarFila();
+agregarFila();
+cargarLista();
+</script>
+</body>
+</html>
